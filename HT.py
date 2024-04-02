@@ -89,16 +89,16 @@ class HoeffdingTree:
         probabilities = counts / counts.sum() # [P(y=1), P(y=2)] for our first dataset
         return 1 - np.sum(probabilities ** 2)
 
+    # Most common label
     def _majority_class(self, y):
-        # Determine the majority class for a set of labels
         return y.mode()[0]
 
+    # Predict each sample's label
     def predict(self, X):
-        # Make predictions for each sample
         return np.array([self._predict_sample(self.root, sample) for _, sample in X.iterrows()])
 
+    # Actual function that predicts each sample's label
     def _predict_sample(self, node, sample):
-        # Recursive function to predict the class for a single sample
         if node.is_leaf:
             return node.prediction
         else:
