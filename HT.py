@@ -2,6 +2,10 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score
 
+# This will be run on just our basic dataset. That set has 3 numerical features (ranging from ~65 to 255) and a predicted binary value (1,2).
+# This dataset looks like rgb values (not sure though).
+
+# Basic Node Class for building tree.
 class Node:
     def __init__(self, is_leaf=True, prediction=None, split_feature=None, split_value=None):
         self.is_leaf = is_leaf
@@ -11,37 +15,42 @@ class Node:
         self.left = None
         self.right = None
 
+# Hoeffding bound is used to make decisions about splitting.
 def hoeffding_bound(R, n, delta):
     return np.sqrt((R**2 * np.log(1/delta)) / (2 * n))
 
+# Hoeffding Tree Implementation (This will be used to learn how to build the HAT and then the EFHAT)
 class HoeffdingTree:
+    # Initialize
     def __init__(self, delta=0.05, min_samples_split=2):
         self.root = Node()
         self.delta = delta
         self.min_samples_split = min_samples_split
 
+    # Create the tree
     def fit(self, X, y):
-        # Start growing the tree using the training data
         self._grow_tree(self.root, X, y)
 
+    # Keep creating the tree
     def _grow_tree(self, node, X, y):
-        # Check base cases
+        # Check base case
         if len(X) < self.min_samples_split:
             node.is_leaf = True
             node.prediction = self._majority_class(y)
             return
 
-        # Calculate current Gini index
-        current_gini = self._gini(y)
+        # Calculate Gini score/impurity
+        current_gini = self._gini(y) 
 
-        # Initialize best split parameters
+        # Variables for best split feature
         best_gini_gain = 0
         best_feature = None
         best_value = None
 
         # Try splitting on each feature
+        # For each unique feature in each column, find the best feature to split on and assign it to best_feature variable.
         for feature in X.columns:
-            values = X[feature].unique()
+            values = X[feature].unique() #Get unique features so the code doesn't try the same feature multiple times
             for value in values:
                 left_mask = X[feature] <= value
                 right_mask = ~left_mask
@@ -54,14 +63,13 @@ class HoeffdingTree:
                 gini_split = (n_left * left_gini + n_right * right_gini) / len(X)
                 gini_gain = current_gini - gini_split
 
-                # Check if this is the best split so far and if it passes the Hoeffding bound
+                # Check for best feature to split on
                 if gini_gain > best_gini_gain and gini_gain > hoeffding_bound(1, len(X), self.delta):
                     best_gini_gain = gini_gain
                     best_feature = feature
                     best_value = value
-            print("Tree is growing")
 
-        # If a split was found that satisfies the Hoeffding bound
+        # If best_feature is found, split on this feature. If not, make it a leaf.
         if best_feature is not None:
             node.is_leaf = False
             node.split_feature = best_feature
@@ -73,14 +81,12 @@ class HoeffdingTree:
             self._grow_tree(node.left, X[left_mask], y[left_mask])
             self._grow_tree(node.right, X[right_mask], y[right_mask])
         else:
-            # No valid split was found, make this a leaf node
             node.is_leaf = True
             node.prediction = self._majority_class(y)
 
     def _gini(self, y):
-        # Calculate Gini impurity for a set of labels
         _, counts = np.unique(y, return_counts=True)
-        probabilities = counts / counts.sum() # [P(y=1), P(y=2)]
+        probabilities = counts / counts.sum() # [P(y=1), P(y=2)] for our first dataset
         return 1 - np.sum(probabilities ** 2)
 
     def _majority_class(self, y):
@@ -102,7 +108,7 @@ class HoeffdingTree:
                 return self._predict_sample(node.right, sample)
 
 def main():
-    print("HAT Implementation: ")
+    print("HT Implementation: ")
     file_path = 'Skin_NonSkin 2.txt'
     data = np.loadtxt(file_path, delimiter='\t')
 
