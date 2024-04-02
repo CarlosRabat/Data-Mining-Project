@@ -1,0 +1,37 @@
+Splitting on root node Feature: 2, Value: 170
+Splitting on intermediate node Feature: 0, Value: 111, Level: 1
+Splitting on intermediate node Feature: 2, Value: 118, Level: 2
+Leaf node Feature: 2, Value: 118, Level: 3
+Splitting on intermediate node Feature: 1, Value: 59, Level: 3
+Leaf node Feature: 1, Value: 59, Level: 4
+Splitting on intermediate node Feature: 0, Value: 87, Level: 4
+Splitting on intermediate node Feature: 1, Value: 116, Level: 5
+Leaf node Feature: 1, Value: 116, Level: 6
+Leaf node Feature: 1, Value: 116, Level: 6
+Splitting on intermediate node Feature: 1, Value: 96, Level: 5
+Leaf node Feature: 1, Value: 96, Level: 6
+Splitting on intermediate node Feature: 2, Value: 143, Level: 6
+Splitting on intermediate node Feature: 1, Value: 100, Level: 7
+Leaf node Feature: 1, Value: 100, Level: 8
+Leaf node Feature: 1, Value: 100, Level: 8
+Leaf node Feature: 2, Value: 143, Level: 7
+Leaf node Feature: 0, Value: 111, Level: 2
+Splitting on intermediate node Feature: 1, Value: 106, Level: 1
+Leaf node Feature: 1, Value: 106, Level: 2
+Splitting on intermediate node Feature: 1, Value: 196, Level: 2
+Splitting on intermediate node Feature: 0, Value: 179, Level: 3
+Splitting on intermediate node Feature: 0, Value: 45, Level: 4
+Leaf node Feature: 0, Value: 45, Level: 5
+Leaf node Feature: 0, Value: 45, Level: 5
+Splitting on intermediate node Feature: 2, Value: 235, Level: 4
+Leaf node Feature: 2, Value: 235, Level: 5
+Splitting on intermediate node Feature: 2, Value: 248, Level: 5
+Leaf node Feature: 2, Value: 248, Level: 6
+Leaf node Feature: 2, Value: 248, Level: 6
+Splitting on intermediate node Feature: 1, Value: 218, Level: 3
+Splitting on intermediate node Feature: 2, Value: 237, Level: 4
+Leaf node Feature: 2, Value: 237, Level: 5
+Splitting on intermediate node Feature: 0, Value: 134, Level: 5
+Leaf node Feature: 0, Value: 134, Level: 6
+Leaf node Feature: 0, Value: 134, Level: 6
+Leaf node Feature: 1, Value: 218, Level: 4
