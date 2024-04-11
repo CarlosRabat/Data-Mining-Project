@@ -1,73 +1,28 @@
 import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score
-from river.drift import ADWIN
+from Node import Node
 
-# This will be run on just our basic dataset. That set has 3 numerical features (ranging from ~65 to 255) and a predicted binary value (1,2).
-# This dataset looks like rgb values (not sure though).
-
-# Basic Node Class for building tree.
-class Node:
-    def __init__(self, is_leaf=True, prediction=None, split_feature=None, split_value=None, height=0):
-        self.is_leaf = is_leaf
-        self.prediction = prediction
-        self.split_feature = split_feature
-        self.split_value = split_value
-        self.left = None
-        self.right = None
-        self.up = None
-        self.height = height
-        self.adwin = ADWIN()
-
-
-    def update_height(self):
-        left_height = self.left.height if self.left else -1
-        right_height = self.right.height if self.right else -1
-        self.height = 1 + max(left_height, right_height)
-
-    def reset_to_leaf(self):
-        # Reset the node to a leaf
-        self.is_leaf = True
-        self.split_feature = None
-        self.split_value = None
-        self.left = None
-        self.right = None
-        # Re-calculate the prediction based on current data
-
-    def check_drift(self, error):
-        self.adwin.update(error)  # Update the ADWIN instance with the current error or value
-        if self.adwin.change_detected:
-            # Drift detected, reset or adjust the node as necessary
-            print("Change detected in data")
-            self.adwin.reset()  # Reset ADWIN to monitor for new changes
-            self.reset_to_leaf()
-
-# Hoeffding bound is used to make decisions about splitting.
-def hoeffding_bound(R, n, delta):
-    return np.sqrt((R**2 * np.log(1/delta)) / (2 * n))
-
-# Hoeffding Tree Implementation (This will be used to learn how to build the HAT and then the EFHAT)
+# Hoeffding Adaptive Tree Implementation (This will be used to learn how to build the HAT and then the EFHAT)
 class HoeffdingAdaptiveTree:
     # Initialize
     def __init__(self, delta=0.05, min_samples_split=2):
         self.root = Node()
         self.delta = delta
         self.min_samples_split = min_samples_split
+        self.alternateTrees = {}
+        self.currentTree = None
+        self.seenSamples = 0
 
     # Create the tree
     def fit(self, X, y):
-        self._grow_tree(self.root, X, y)
+        self.createRoot(self.root, X, y)
 
     # Keep creating the tree
-    def _grow_tree(self, node, X, y):
-        # Check base case
-        if len(X) < self.min_samples_split:
-            node.is_leaf = True
-            node.prediction = self._majority_class(y)
-            return
-
+    def createRoot(self, node, X, y):
+        self.seenSamples += 1
         # Calculate Gini score/impurity
-        current_gini = self._gini(y) 
+        current_gini = self.gini(y) 
 
         # Variables for best split feature
         best_gini_gain = 0
@@ -84,8 +39,8 @@ class HoeffdingAdaptiveTree:
             for value in values:
                 left_mask = X[feature] <= value # All features less than value
                 right_mask = ~left_mask # All features not in left_mask
-                left_gini = self._gini(y[left_mask]) # Calculate gini score of left_mask
-                right_gini = self._gini(y[right_mask]) # Calculate gini score of right_mask
+                left_gini = self.gini(y[left_mask]) # Calculate gini score of left_mask
+                right_gini = self.gini(y[right_mask]) # Calculate gini score of right_mask
                 n_left = sum(left_mask) # Number of instances in left_mask
                 n_right = sum(right_mask) # Number of instances in right_mask
 
@@ -94,11 +49,11 @@ class HoeffdingAdaptiveTree:
                 gini_gain = current_gini - gini_split # How much has been gained for splitting on this value
 
                 # Check for best feature to split on
-                if gini_gain > best_gini_gain and gini_gain > hoeffding_bound(1, len(X), self.delta):
+                if gini_gain > best_gini_gain and gini_gain > self.hoeffding_bound(1, len(X), self.delta):
                     best_gini_gain = gini_gain
                     best_feature = feature
                     best_value = value
-              
+            
         column = 0
         # If best_feature is found, split on this feature. If not, make it a leaf.
         if best_feature is not None:
@@ -108,20 +63,47 @@ class HoeffdingAdaptiveTree:
             left_mask = X[best_feature] <= best_value
             right_mask = ~left_mask
             node.left = Node()
-            node.left.up = node
             node.right = Node()
-            node.right.up = node
-            temp_node = node
-            while temp_node:
-                temp_node.update_height()
-                temp_node = temp_node.up
-            self._grow_tree(node.left, X[left_mask], y[left_mask])
-            self._grow_tree(node.right, X[right_mask], y[right_mask])
+            self.growTree(X[left_mask], y[left_mask], node.left)
+            self.growTree(X[right_mask], y[right_mask], node.right)
         else:
-            node.is_leaf = True
-            node.prediction = self._majority_class(y)
+            print("ERROR")
+            exit()
 
-    def _gini(self, y):
+    # From this node, start building HTs and updating the tree
+    def growTree(self, X, y, node):
+        for index, row in X.iterrows():
+            label = y.iloc[index].iloc[0].item()
+            #print(row[0], row[1], row[2], label)
+
+            best_feature, best_value, best_score = self._evaluate_splits(X, y)
+            if best_feature is not None and self._is_significant_split(best_score):
+                node.is_leaf = False
+                node.split_feature = best_feature
+                node.split_value = best_value
+
+                left_mask = X[best_feature] <= best_value
+                right_mask = ~left_mask
+
+                node.left = Node()
+                node.right = Node()
+
+                # Recursively grow the left and right subtrees
+                self.growTree(X[left_mask], y[left_mask], node.left)
+                self.growTree(X[right_mask], y[right_mask], node.right)
+            else:
+                node.is_leaf = True
+                node.prediction = self._majority_class(y)
+
+            # ADWIN update and drift check
+            old_prediction = node.prediction
+            node.adwin.update(y == old_prediction)  # Using accuracy as feedback; adapt as needed
+            
+            if node.adwin.drift_detected:
+                node.reset_to_leaf()
+
+    # Get gini score for the root
+    def gini(self, y):
         _, counts = np.unique(y, return_counts=True)
         probabilities = counts / counts.sum() # [P(y=1), P(y=2)] for our first dataset
         return 1 - np.sum(probabilities ** 2)
@@ -143,49 +125,8 @@ class HoeffdingAdaptiveTree:
                 return self._predict_sample(node.left, sample)
             else:
                 return self._predict_sample(node.right, sample)
-    
-    def toString(self):
-        if not self.root:
-            return "The tree is empty"
+            
+    # Hoeffding bound is used to make decisions about splitting.
+    def hoeffding_bound(self, R, n, delta):
+        return np.sqrt((R**2 * np.log(1/delta)) / (2 * n))
 
-        # Use a queue for BFS traversal
-        queue = [(self.root, 0)]
-        while queue:
-            current, level = queue.pop(0)
-            # Print the current node's details
-            if current.is_leaf:
-                print(f"Level {level} | Leaf: Prediction={current.prediction}, Height={current.height}")
-            else:
-                print(f"Level {level} | Node: Split Feature={current.split_feature}, Split Value={current.split_value}, Height={current.height}")
-
-            # Add the child nodes to the queue
-            if current.left:
-                queue.append((current.left, level + 1)) # type: ignore
-            if current.right:
-                queue.append((current.right, level + 1)) # type: ignore
-
-def main():
-    print("HAT Implementation: ")
-    file_path = 'Skin_NonSkin 2.txt'
-    data = np.loadtxt(file_path, delimiter='\t')
-
-    # Split the data into features and target variable
-    X = data[:, :-1].astype(int) # Going to be an array of 245057x3
-    y = data[:, -1].astype(int) # Going to be an array of 245057x1
-
-    X_df = pd.DataFrame(X)
-    y_df = pd.DataFrame(y)
-
-    tree = HoeffdingAdaptiveTree() #Create Hoeffding Adapative Tree
-    tree.fit(X_df, y_df) # Fit the tree to the data
-    predictions = tree.predict(X_df)
-    actual_labels = y_df
-    tree.toString()
-
-    accuracy = accuracy_score(actual_labels, predictions)
-
-    print(f'Accuracy: {accuracy * 100:.2f}%')
-
-
-if __name__ == '__main__':
-    main()
