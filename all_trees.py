@@ -797,13 +797,16 @@ if __name__ == '__main__':
     file_path = './Skin_Data/Skin_NonSkin 2.txt'
     #file_path = './Skin_Data/Skin_NoSkin 1000.txt'
     #file_path = './Skin_Data/Skin_NoSkin 10000.txt'
+    file_path = './Other_Data/cleaned_MiniBooNE_data.txt'
+
     # Load the data
     data = np.loadtxt(file_path, delimiter='\t')
 
     # Split the data into features and target variable
     X = data[:, :-1]
     y = data[:, -1].astype(int) 
-    y = y - 1
+    if file_path == './Skin_Data/Skin_NonSkin 2.txt':
+        y = y - 1
 
     #Initialize variables
     errors_count = 0
